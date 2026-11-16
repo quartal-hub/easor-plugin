@@ -11,11 +11,18 @@ export default defineQrtlConfig({
   // "custom" (your own OAuth2 / OIDC server).
   // Quartal test Keycloak (issuer, scope quartal-hub-test, audience https://hub.test.qrtl.com).
   auth: "quartal-hub",
-  // The skin of the docs site and the widgets. Logo and icons shown by MCP clients and the docs site:
-  // logo: "https://example.com/logo.png",
-  // icons: [{ src: "https://example.com/icon.png", mimeType: "image/png", sizes: ["128x128"] }],
+  // The skin of the docs site and the widgets, and the icon shown by MCP clients and plugin catalogs.
+  // For now the icon is Easor's chat assistant avatar; replace it with Easor's own icon once one is
+  // at https://cdn.quartal.com/img/integrations/icon/easor.png, like the other integrations'.
   style: {
     skin: SKIN_URL,
+    icons: [
+      {
+        src: "https://cdn.salaxy.com/ng1/img/partners/easor-bot-256.png",
+        sizes: ["256x256"],
+        mimeType: "image/png",
+      },
+    ],
   },
   widgets: {
     // Widgets run in the MCP host's sandbox, which loads only the origins declared here: the skin and
