@@ -1,3 +1,5 @@
+import type { QuartalPluginContext } from "@quartal/plugin";
+import { logToolCall } from "./easor/log.ts";
 import { pageInfo } from "./easor/paging.ts";
 import { salesGet } from "./easor/client.ts";
 import type { FindProductsInput, Product, ProductList } from "./model/product.ts";
@@ -58,16 +60,18 @@ export class Products {
    * @returns A page of matching products.
    * @readOnly
    */
-  static async find(input: FindProductsInput): Promise<ProductList> {
-    const offset = input.offset ?? 0;
-    const response = await salesGet<ApiProductResponse>("/products", {
-      searchKeyWord: input.search,
-      offset,
-      limit: input.limit ?? 20,
+  static async find(input: FindProductsInput, ctx?: QuartalPluginContext): Promise<ProductList> {
+    return logToolCall("findProducts", ctx, async () => {
+      const offset = input.offset ?? 0;
+      const response = await salesGet<ApiProductResponse>("/products", {
+        searchKeyWord: input.search,
+        offset,
+        limit: input.limit ?? 20,
+      });
+      return {
+        products: (response.items ?? []).map(toProduct),
+        ...pageInfo(offset, response.items?.length ?? 0, response.totalCount ?? response.totalcount),
+      };
     });
-    return {
-      products: (response.items ?? []).map(toProduct),
-      ...pageInfo(offset, response.items?.length ?? 0, response.totalCount ?? response.totalcount),
-    };
   }
 }

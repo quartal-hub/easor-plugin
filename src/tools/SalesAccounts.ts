@@ -1,5 +1,7 @@
+import type { QuartalPluginContext } from "@quartal/plugin";
+import { logToolCall } from "./easor/log.ts";
 import { salesGet } from "./easor/client.ts";
-import type { SalesAccount, SalesAccountList } from "./model/account.ts";
+import type { ListSalesAccountsInput, SalesAccount, SalesAccountList } from "./model/account.ts";
 
 /** A sales account as the API returns it. */
 interface ApiSalesAccount {
@@ -30,7 +32,9 @@ export class SalesAccounts {
    * @returns The active sales accounts.
    * @readOnly
    */
-  static async list(): Promise<SalesAccountList> {
-    return { accounts: await activeSalesAccounts() };
+  static async list(_input: ListSalesAccountsInput, ctx?: QuartalPluginContext): Promise<SalesAccountList> {
+    return logToolCall("listSalesAccounts", ctx, async () => {
+      return { accounts: await activeSalesAccounts() };
+    });
   }
 }

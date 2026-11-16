@@ -1,3 +1,5 @@
+import type { QuartalPluginContext } from "@quartal/plugin";
+import { logToolCall } from "./easor/log.ts";
 import { pageInfo } from "./easor/paging.ts";
 import { organizationNumber, salesGet, salesRequest } from "./easor/client.ts";
 import type { Contact, ContactList, CreateContactInput, FindContactsInput } from "./model/contact.ts";
@@ -75,17 +77,19 @@ export class Contacts {
    * @returns A page of matching contacts.
    * @readOnly
    */
-  static async find(input: FindContactsInput): Promise<ContactList> {
-    const offset = input.offset ?? 0;
-    const response = await salesGet<{ items?: ApiContact[]; totalCount?: number; totalcount?: number }>("/contacts", {
-      searchKeyWord: input.search,
-      offset,
-      limit: input.limit ?? 20,
+  static async find(input: FindContactsInput, ctx?: QuartalPluginContext): Promise<ContactList> {
+    return logToolCall("findContacts", ctx, async () => {
+      const offset = input.offset ?? 0;
+      const response = await salesGet<{ items?: ApiContact[]; totalCount?: number; totalcount?: number }>("/contacts", {
+        searchKeyWord: input.search,
+        offset,
+        limit: input.limit ?? 20,
+      });
+      return {
+        contacts: (response.items ?? []).map(toContact),
+        ...pageInfo(offset, response.items?.length ?? 0, response.totalCount ?? response.totalcount),
+      };
     });
-    return {
-      contacts: (response.items ?? []).map(toContact),
-      ...pageInfo(offset, response.items?.length ?? 0, response.totalCount ?? response.totalcount),
-    };
   }
 
   /**
@@ -94,41 +98,43 @@ export class Contacts {
    * @param input - The contact's details.
    * @returns The new contact, with its id and customer number.
    */
-  static async create(input: CreateContactInput): Promise<Contact> {
-    if (input.type === "Business" && !input.businessId && !input.vatId) {
-      throw new Error("A business contact needs a businessId (Y-tunnus) or a vatId.");
-    }
-    const created = await salesRequest<ApiContact>("POST", "/contacts", {
-      body: {
-        organizationNumber: organizationNumber(),
-        type: input.type,
-        // 0 makes Easor assign the next free customer number.
-        number: input.number ?? 0,
-        name: input.name,
-        nameExtension: input.nameExtension,
-        businessId: input.businessId,
-        vatId: input.vatId,
-        invoicingAddress: {
-          address1: input.address.street,
-          address2: input.address.street2,
-          postalCode: input.address.postalCode,
-          postOffice: input.address.city,
-          country: input.address.country ?? "FI",
+  static async create(input: CreateContactInput, ctx?: QuartalPluginContext): Promise<Contact> {
+    return logToolCall("createContact", ctx, async () => {
+      if (input.type === "Business" && !input.businessId && !input.vatId) {
+        throw new Error("A business contact needs a businessId (Y-tunnus) or a vatId.");
+      }
+      const created = await salesRequest<ApiContact>("POST", "/contacts", {
+        body: {
+          organizationNumber: organizationNumber(),
+          type: input.type,
+          // 0 makes Easor assign the next free customer number.
+          number: input.number ?? 0,
+          name: input.name,
+          nameExtension: input.nameExtension,
+          businessId: input.businessId,
+          vatId: input.vatId,
+          invoicingAddress: {
+            address1: input.address.street,
+            address2: input.address.street2,
+            postalCode: input.address.postalCode,
+            postOffice: input.address.city,
+            country: input.address.country ?? "FI",
+          },
+          email: input.email,
+          phone: input.phone,
+          phoneMobile: input.mobilePhone,
+          defaultDeliveryMethod: input.defaultShipMode,
+          eInvoiceIdentifier: input.eInvoiceAddress,
+          eInvoiceIntermediator: input.eInvoiceOperator,
+          isEmailInvoicingInUse: input.invoicingEmail ? true : undefined,
+          invoicingEmailAddress: input.invoicingEmail,
+          paymentTerm: input.paymentTermDays,
+          invoiceLanguage: input.invoiceLanguage ?? "fi-FI",
+          currency: input.currency ?? "EUR",
+          defaultReceivableAccountNumber: await receivableAccountFor(input.receivableAccountNumber),
         },
-        email: input.email,
-        phone: input.phone,
-        phoneMobile: input.mobilePhone,
-        defaultDeliveryMethod: input.defaultShipMode,
-        eInvoiceIdentifier: input.eInvoiceAddress,
-        eInvoiceIntermediator: input.eInvoiceOperator,
-        isEmailInvoicingInUse: input.invoicingEmail ? true : undefined,
-        invoicingEmailAddress: input.invoicingEmail,
-        paymentTerm: input.paymentTermDays,
-        invoiceLanguage: input.invoiceLanguage ?? "fi-FI",
-        currency: input.currency ?? "EUR",
-        defaultReceivableAccountNumber: await receivableAccountFor(input.receivableAccountNumber),
-      },
+      });
+      return toContact(created);
     });
-    return toContact(created);
   }
 }

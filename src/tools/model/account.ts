@@ -13,3 +13,6 @@ export interface SalesAccountList {
   /** The active sales accounts. */
   accounts: SalesAccount[];
 }
+
+/** No input: the tool lists every active sales account. */
+export interface ListSalesAccountsInput {}

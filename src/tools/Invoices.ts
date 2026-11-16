@@ -1,3 +1,5 @@
+import type { QuartalPluginContext } from "@quartal/plugin";
+import { logToolCall } from "./easor/log.ts";
 import { pageInfo } from "./easor/paging.ts";
 import { salesGet, salesRequest } from "./easor/client.ts";
 import { PDF_PATH, createPdfToken } from "./easor/pdfLinks.ts";
@@ -187,28 +189,30 @@ export class Invoices {
    * @returns A page of invoice summaries with the totals of all matching invoices.
    * @readOnly
    */
-  static async list(input: ListInvoicesInput): Promise<InvoiceList> {
-    const offset = input.offset ?? 0;
-    const response = await salesGet<ApiInvoiceResponse>("/invoices", {
-      dateType: input.dateType,
-      dateStart: input.dateFrom,
-      // Created, updated, sent and paid dates have a time; include the whole last day.
-      dateEnd: input.dateTo && `${input.dateTo}T23:59:59.999`,
-      invoiceStatus: input.status,
-      contactId: input.contactId,
-      invoiceNumber: input.invoiceNumber,
-      sortType: input.sortBy,
-      sortDirect: input.descending === undefined ? undefined : input.descending ? "Desc" : "Asc",
-      offset,
-      limit: input.limit ?? 50,
+  static async list(input: ListInvoicesInput, ctx?: QuartalPluginContext): Promise<InvoiceList> {
+    return logToolCall("listInvoices", ctx, async () => {
+      const offset = input.offset ?? 0;
+      const response = await salesGet<ApiInvoiceResponse>("/invoices", {
+        dateType: input.dateType,
+        dateStart: input.dateFrom,
+        // Created, updated, sent and paid dates have a time; include the whole last day.
+        dateEnd: input.dateTo && `${input.dateTo}T23:59:59.999`,
+        invoiceStatus: input.status,
+        contactId: input.contactId,
+        invoiceNumber: input.invoiceNumber,
+        sortType: input.sortBy,
+        sortDirect: input.descending === undefined ? undefined : input.descending ? "Desc" : "Asc",
+        offset,
+        limit: input.limit ?? 50,
+      });
+      return {
+        invoices: (response.invoices ?? []).map(summarize),
+        ...pageInfo(offset, response.invoices?.length ?? 0, response.totalCount ?? response.totalcount),
+        total: response.total,
+        totalTax: response.totalTax,
+        totalWithoutTax: response.totalWithoutTax,
+      };
     });
-    return {
-      invoices: (response.invoices ?? []).map(summarize),
-      ...pageInfo(offset, response.invoices?.length ?? 0, response.totalCount ?? response.totalcount),
-      total: response.total,
-      totalTax: response.totalTax,
-      totalWithoutTax: response.totalWithoutTax,
-    };
   }
 
   /**
@@ -220,8 +224,10 @@ export class Invoices {
    * @returns The invoice.
    * @readOnly
    */
-  static async get(input: InvoiceIdInput): Promise<InvoiceDetail> {
-    return detail(await fetchInvoice(input.id));
+  static async get(input: InvoiceIdInput, ctx?: QuartalPluginContext): Promise<InvoiceDetail> {
+    return logToolCall("getInvoice", ctx, async () => {
+      return detail(await fetchInvoice(input.id));
+    });
   }
 
   /**
@@ -230,60 +236,62 @@ export class Invoices {
    * @param input - The customer, lines and details of the invoice.
    * @returns The draft invoice.
    */
-  static async create(input: CreateInvoiceInput): Promise<InvoiceDetail> {
-    if (input.lines.length === 0) throw new Error("An invoice needs at least one line.");
-    const accounts = await activeSalesAccounts();
-    const lineItems = await Promise.all(
-      input.lines.map(async (given, index): Promise<ApiLineItem> => {
-        const product = given.productId ? await fetchProduct(given.productId) : undefined;
-        // The product's values, overridden by the ones given.
-        const line: NewInvoiceLine = {
-          productName: product?.name,
-          description: product?.description,
-          unit: product?.unit,
-          pricePerUnit: product?.pricePerUnit,
-          taxPercent: product?.vatPercent,
-          salesAccountNumber: product?.salesAccountNumber,
-          ...Object.fromEntries(Object.entries(given).filter(([, value]) => value !== undefined)),
-        } as NewInvoiceLine;
-        if (!line.productName) throw new Error(`Line ${index + 1} needs a productName or a productId.`);
-        if (line.pricePerUnit === undefined) {
-          throw new Error(`Line "${line.productName}" needs a pricePerUnit or a productId.`);
-        }
-        const taxPercent = line.taxPercent ?? DEFAULT_TAX_PERCENT;
-        return {
-          type: "Product",
-          productNumber: product?.number,
-          productName: line.productName,
-          description: line.description,
-          quantity: line.quantity,
-          unit: line.unit,
-          pricePerUnit: line.pricePerUnit,
-          taxPercent,
-          salesAccountNumber: salesAccountFor(line, taxPercent, accounts),
-          position: index + 1,
-        };
-      }),
-    );
+  static async create(input: CreateInvoiceInput, ctx?: QuartalPluginContext): Promise<InvoiceDetail> {
+    return logToolCall("createInvoice", ctx, async () => {
+      if (input.lines.length === 0) throw new Error("An invoice needs at least one line.");
+      const accounts = await activeSalesAccounts();
+      const lineItems = await Promise.all(
+        input.lines.map(async (given, index): Promise<ApiLineItem> => {
+          const product = given.productId ? await fetchProduct(given.productId) : undefined;
+          // The product's values, overridden by the ones given.
+          const line: NewInvoiceLine = {
+            productName: product?.name,
+            description: product?.description,
+            unit: product?.unit,
+            pricePerUnit: product?.pricePerUnit,
+            taxPercent: product?.vatPercent,
+            salesAccountNumber: product?.salesAccountNumber,
+            ...Object.fromEntries(Object.entries(given).filter(([, value]) => value !== undefined)),
+          } as NewInvoiceLine;
+          if (!line.productName) throw new Error(`Line ${index + 1} needs a productName or a productId.`);
+          if (line.pricePerUnit === undefined) {
+            throw new Error(`Line "${line.productName}" needs a pricePerUnit or a productId.`);
+          }
+          const taxPercent = line.taxPercent ?? DEFAULT_TAX_PERCENT;
+          return {
+            type: "Product",
+            productNumber: product?.number,
+            productName: line.productName,
+            description: line.description,
+            quantity: line.quantity,
+            unit: line.unit,
+            pricePerUnit: line.pricePerUnit,
+            taxPercent,
+            salesAccountNumber: salesAccountFor(line, taxPercent, accounts),
+            position: index + 1,
+          };
+        }),
+      );
 
-    const draft = await salesRequest<ApiInvoice>("POST", "/invoices", { query: { contactId: input.contactId } });
-    const update: ApiInvoice = { ...draft, lineItems };
-    if (input.paymentTermDays !== undefined && draft.date) {
-      // The API requires the due date to match the payment term.
-      update.paymentTerm = input.paymentTermDays;
-      update.dueDate = addDays(draft.date, input.paymentTermDays);
-    }
-    if (input.ourReference !== undefined) update.ourReference = input.ourReference;
-    if (input.yourReference !== undefined) update.yourReference = input.yourReference;
-    if (input.orderNumber !== undefined) update.orderNumber = input.orderNumber;
-    if (input.message !== undefined) update.message = input.message;
-    try {
-      return detail(await salesRequest<ApiInvoice>("PUT", `/invoices/${draft.id}`, { body: update }));
-    } catch (error) {
-      // Don't leave an empty draft behind.
-      await salesRequest("DELETE", `/invoices/${draft.id}`).catch(() => undefined);
-      throw new Error(`Easor rejected the invoice details, so no invoice was created. ${(error as Error).message}`);
-    }
+      const draft = await salesRequest<ApiInvoice>("POST", "/invoices", { query: { contactId: input.contactId } });
+      const update: ApiInvoice = { ...draft, lineItems };
+      if (input.paymentTermDays !== undefined && draft.date) {
+        // The API requires the due date to match the payment term.
+        update.paymentTerm = input.paymentTermDays;
+        update.dueDate = addDays(draft.date, input.paymentTermDays);
+      }
+      if (input.ourReference !== undefined) update.ourReference = input.ourReference;
+      if (input.yourReference !== undefined) update.yourReference = input.yourReference;
+      if (input.orderNumber !== undefined) update.orderNumber = input.orderNumber;
+      if (input.message !== undefined) update.message = input.message;
+      try {
+        return detail(await salesRequest<ApiInvoice>("PUT", `/invoices/${draft.id}`, { body: update }));
+      } catch (error) {
+        // Don't leave an empty draft behind.
+        await salesRequest("DELETE", `/invoices/${draft.id}`).catch(() => undefined);
+        throw new Error(`Easor rejected the invoice details, so no invoice was created. ${(error as Error).message}`);
+      }
+    });
   }
 
   /**
@@ -294,10 +302,12 @@ export class Invoices {
    * @readOnly
    * @visibility app
    */
-  static async createInvoicePdfLink(input: InvoiceIdInput): Promise<InvoicePdfLink> {
-    const invoice = await fetchInvoice(input.id);
-    const token = await createPdfToken({ invoiceId: invoice.id });
-    return { path: `${PDF_PATH}?token=${token}` };
+  static async createInvoicePdfLink(input: InvoiceIdInput, ctx?: QuartalPluginContext): Promise<InvoicePdfLink> {
+    return logToolCall("createInvoicePdfLink", ctx, async () => {
+      const invoice = await fetchInvoice(input.id);
+      const token = await createPdfToken({ invoiceId: invoice.id });
+      return { path: `${PDF_PATH}?token=${token}` };
+    });
   }
 
   /**
@@ -307,9 +317,11 @@ export class Invoices {
    * @returns The id of the deleted invoice.
    * @destructive
    */
-  static async delete(input: InvoiceIdInput): Promise<DeletedInvoice> {
-    await salesRequest("DELETE", `/invoices/${input.id}`);
-    return { id: input.id, deleted: true };
+  static async delete(input: InvoiceIdInput, ctx?: QuartalPluginContext): Promise<DeletedInvoice> {
+    return logToolCall("deleteInvoice", ctx, async () => {
+      await salesRequest("DELETE", `/invoices/${input.id}`);
+      return { id: input.id, deleted: true };
+    });
   }
 
   /**
@@ -320,16 +332,18 @@ export class Invoices {
    * @destructive
    * @rest POST {id}/deliver
    */
-  static async deliverInvoice(input: DeliverInvoiceInput): Promise<InvoiceDelivery> {
-    const result = await salesRequest<ApiInvoice>("POST", `/invoices/${input.id}/deliver`, {
-      body: { shipMode: input.shipMode },
+  static async deliverInvoice(input: DeliverInvoiceInput, ctx?: QuartalPluginContext): Promise<InvoiceDelivery> {
+    return logToolCall("deliverInvoice", ctx, async () => {
+      const result = await salesRequest<ApiInvoice>("POST", `/invoices/${input.id}/deliver`, {
+        body: { shipMode: input.shipMode },
+      });
+      return {
+        id: result.id,
+        number: result.number || undefined,
+        status: result.status,
+        shipMode: text(result.shipMode),
+        referenceNumber: text(result.referenceNumber),
+      };
     });
-    return {
-      id: result.id,
-      number: result.number || undefined,
-      status: result.status,
-      shipMode: text(result.shipMode),
-      referenceNumber: text(result.referenceNumber),
-    };
   }
 }

@@ -64,7 +64,10 @@ No database is needed: the plugin keeps nothing between requests.
   and `POST /mcp` without a token answers `401`.
 - In an MCP client (e.g. MCPJam, see [authentication.md](authentication.md)): log in, run
   `listInvoices`, open an invoice with `getInvoice` and try its Open PDF button.
-- Logs: `npx vercel logs --since 1h`.
+- Logs: `npx vercel logs --environment production --since 1h`, or the project's Logs tab. Every
+  tool call logs one line with the user's id, the time it took and, if it failed, why, e.g.
+  `[tool] getInvoice uid=<id> ok 412ms`; every PDF link logs `[pdf] ok`, `expired` or `failed`.
+  Inputs and results aren't logged, as they hold customer and invoice details.
 
 ## Troubleshooting
 

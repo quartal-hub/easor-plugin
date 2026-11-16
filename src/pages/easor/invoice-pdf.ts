@@ -4,6 +4,7 @@
 // produces it for the customer; the browser's PDF viewer then prints or saves it.
 import type { APIRoute } from "astro";
 import { salesDownload } from "../../tools/easor/client.ts";
+import { logPdfRequest } from "../../tools/easor/log.ts";
 import { resolvePdfToken } from "../../tools/easor/pdfLinks.ts";
 
 export const prerender = false;
@@ -18,16 +19,19 @@ function message(status: number, text: string): Response {
 export const GET: APIRoute = async ({ url }) => {
   const target = await resolvePdfToken(url.searchParams.get("token") ?? "");
   if (!target) {
+    logPdfRequest("expired");
     return message(404, "This PDF link is unknown or has expired (links work for 10 minutes). Use the button in the chat again.");
   }
   let pdf: Response;
   try {
     pdf = await salesDownload(`/invoices/${encodeURIComponent(target.invoiceId)}/download`, "application/pdf");
   } catch (error) {
+    logPdfRequest("failed", error);
     return message(502, `Could not get the invoice PDF from Easor. ${(error as Error).message}`);
   }
   // Easor names the file (Lasku_<customer>_<number>.pdf) as an attachment; show it in the browser
   // instead, so it can be read and printed there, keeping the name for saving.
+  logPdfRequest("ok");
   const disposition = (pdf.headers.get("Content-Disposition") ?? "attachment").replace(/^\s*attachment/i, "inline");
   return new Response(pdf.body, {
     headers: { ...PRIVATE, "Content-Type": "application/pdf", "Content-Disposition": disposition },
