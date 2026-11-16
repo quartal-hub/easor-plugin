@@ -6,7 +6,7 @@ export const SKIN_URL = "https://cdn.quartal.com/skins/default.css";
 // Plugin metadata and options — see https://plugin.quartal.com for the full reference.
 export default defineQrtlConfig({
   title: "Easor Plugin",
-  description: "A Quartal Plugin.",
+  description: "Sales invoices, customers and products in Easor (Talenom)",
   // Auth mode: "anon" (no authentication), "quartal-hub" (OAuth2 via Quartal Hub), or
   // "custom" (your own OAuth2 / OIDC server).
   // Quartal test Keycloak (issuer, scope quartal-hub-test, audience https://hub.test.qrtl.com).

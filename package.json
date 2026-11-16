@@ -3,7 +3,7 @@
   "type": "module",
   "packageManager": "pnpm@11.28.11",
   "version": "0.1.0",
-  "description": "A Quartal Plugin.",
+  "description": "Sales invoices, customers and products in Easor (Talenom)",
   "private": true,
   "scripts": {
     "dev": "astro dev",
