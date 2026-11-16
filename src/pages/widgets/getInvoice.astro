@@ -1,0 +1,8 @@
+---
+// The UI for the `getInvoice` tool: the invoice laid out like its print-out.
+import WidgetLayout from "../../layouts/WidgetLayout.astro";
+import InvoiceView from "../../components/InvoiceView.tsx";
+---
+<WidgetLayout title="Invoice">
+  <InvoiceView client:only="react" />
+</WidgetLayout>
