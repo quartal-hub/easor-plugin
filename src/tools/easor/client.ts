@@ -80,39 +80,63 @@ interface ProblemDetails {
   detail?: string;
 }
 
+/** Query parameters of an API call; undefined values are left out. */
+export type Query = Record<string, string | number | boolean | undefined>;
+
 /**
  * Calls a GET operation of the Sales Invoicing API for the configured organization.
  * @param path - The path after `/{organizationNumber}`, such as `/invoices`.
  * @param query - Query parameters; undefined values are left out.
  */
-export async function salesGet<T>(
+export function salesGet<T>(path: string, query: Query = {}): Promise<T> {
+  return salesRequest<T>("GET", path, { query });
+}
+
+/**
+ * Calls an operation of the Sales Invoicing API for the configured organization.
+ * @param method - The HTTP method.
+ * @param path - The path after `/{organizationNumber}`, such as `/invoices`.
+ * @param options - Query parameters and a JSON body.
+ * @returns The parsed JSON response, or undefined when the response has no body.
+ */
+export async function salesRequest<T>(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
-  query: Record<string, string | number | boolean | undefined> = {},
+  options: { query?: Query; body?: unknown } = {},
 ): Promise<T> {
   const cfg = config();
   const url = new URL(`${SALES_API_URL}/${encodeURIComponent(cfg.organizationNumber)}${path}`);
-  for (const [key, value] of Object.entries(query)) {
+  for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${await accessToken(cfg)}`,
+    "Ocp-Apim-Subscription-Key": cfg.subscriptionKey,
+    "User-Agent": USER_AGENT,
+    Accept: "application/json",
+  };
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
   const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${await accessToken(cfg)}`,
-      "Ocp-Apim-Subscription-Key": cfg.subscriptionKey,
-      "User-Agent": USER_AGENT,
-      Accept: "application/json",
-    },
+    method,
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {
     if (response.status === 401) cachedToken = undefined;
-    let problem: ProblemDetails = {};
+    const text = await response.text();
+    let reason = "";
     try {
-      problem = (await response.json()) as ProblemDetails;
+      const problem = JSON.parse(text) as ProblemDetails & { errors?: Record<string, string[]> };
+      const fieldErrors = Object.entries(problem.errors ?? {}).map(
+        ([field, errors]) => `${field}: ${errors.join(" ")}`,
+      );
+      reason = [problem.title, problem.detail, ...fieldErrors].filter(Boolean).join("; ");
     } catch {
-      // Not JSON.
+      reason = text.slice(0, 500);
     }
-    const reason = [problem.title, problem.detail].filter(Boolean).join(": ");
     throw new Error(`Easor API request failed with HTTP ${response.status}${reason ? `: ${reason}` : "."}`);
   }
-  return (await response.json()) as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
