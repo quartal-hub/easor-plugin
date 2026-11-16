@@ -1,6 +1,7 @@
 {
   "name": "easor-plugin",
   "type": "module",
+  "packageManager": "pnpm@11.28.11",
   "version": "0.1.0",
   "description": "A Quartal Plugin.",
   "private": true,
@@ -12,6 +13,7 @@
   "dependencies": {
     "@astrojs/node": "^11.0.0",
     "@astrojs/react": "^6.0.0",
+    "@astrojs/vercel": "^11.0.22",
     "@quartal/plugin": "^1.1.0",
     "astro": "^7.0.0",
     "react": "^19.0.0",

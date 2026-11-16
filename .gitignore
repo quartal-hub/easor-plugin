@@ -5,3 +5,4 @@ src/qrtl-plugin/
 .env
 .env.*
 !.env.example
+.vercel/

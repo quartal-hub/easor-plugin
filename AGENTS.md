@@ -9,6 +9,7 @@ REST actions, widgets and Agent Skills. Full documentation: <https://plugin.quar
 - `pnpm install` — install dependencies
 - `pnpm dev` — dev server on <http://localhost:4321>
 - `pnpm build && node ./dist/server/entry.mjs` — production build and run
+- Hosting on Vercel (`VERCEL=1` selects `@astrojs/vercel`): `docs/hosting-on-vercel.md`
 
 The server serves the plugin's docs site (with tool and widget testers) at `/`, the MCP server
 at `/mcp`, REST operations at `/api/<class>/...` (see the Tools guide for the naming convention), widget pages at `/widgets/<toolId>` and the

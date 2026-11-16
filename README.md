@@ -33,3 +33,5 @@ The plugin runs on <http://localhost:4321>:
 pnpm build
 node ./dist/server/entry.mjs
 ```
+
+To host it on Vercel, see [docs/hosting-on-vercel.md](docs/hosting-on-vercel.md).
