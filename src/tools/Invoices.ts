@@ -1,5 +1,6 @@
 import { pageInfo } from "./easor/paging.ts";
 import { salesGet, salesRequest } from "./easor/client.ts";
+import { PDF_PATH, createPdfToken } from "./easor/pdfLinks.ts";
 import { fetchProduct } from "./Products.ts";
 import { activeSalesAccounts } from "./SalesAccounts.ts";
 import type { SalesAccount } from "./model/account.ts";
@@ -12,6 +13,7 @@ import type {
   InvoiceIdInput,
   InvoiceLine,
   InvoiceList,
+  InvoicePdfLink,
   InvoiceSummary,
   ListInvoicesInput,
   NewInvoiceLine,
@@ -279,6 +281,20 @@ export class Invoices {
       await salesRequest("DELETE", `/invoices/${draft.id}`).catch(() => undefined);
       throw new Error(`Easor rejected the invoice details, so no invoice was created. ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Create a short-lived link to the invoice's PDF, as Easor produces it for the customer, for the
+   * invoice widget's download button (widgets cannot download or print themselves).
+   * @param input - The invoice id.
+   * @returns The PDF's path on this server, valid for 10 minutes.
+   * @readOnly
+   * @visibility app
+   */
+  static async createInvoicePdfLink(input: InvoiceIdInput): Promise<InvoicePdfLink> {
+    const invoice = await fetchInvoice(input.id);
+    const token = await createPdfToken({ invoiceId: invoice.id });
+    return { path: `${PDF_PATH}?token=${token}` };
   }
 
   /**

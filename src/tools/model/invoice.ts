@@ -273,3 +273,13 @@ export interface DeletedInvoice {
   /** Always true. */
   deleted: boolean;
 }
+
+/** A short-lived link to an invoice's PDF. */
+export interface InvoicePdfLink {
+  /**
+   * Path of the PDF on this plugin's server, with a token that works for 10 minutes. Resolve it
+   * against the plugin's base URL to open it.
+   * @example "/easor/invoice-pdf?token=…"
+   */
+  path: string;
+}

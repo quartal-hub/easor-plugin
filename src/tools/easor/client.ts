@@ -54,6 +54,14 @@ export function organizationNumber(): number {
   return Number(config().organizationNumber);
 }
 
+/**
+ * A secret only this server knows, for keys of its own such as the one for PDF link tokens: the
+ * Easor client secret, so there is nothing extra to configure.
+ */
+export function serverSecret(): string {
+  return config().clientSecret;
+}
+
 let cachedToken: { value: string; expiresAt: number } | undefined;
 
 async function accessToken(cfg: Config): Promise<string> {
@@ -97,6 +105,9 @@ export function salesGet<T>(path: string, query: Query = {}): Promise<T> {
   return salesRequest<T>("GET", path, { query });
 }
 
+/** HTTP methods of the Sales Invoicing API. */
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
 /**
  * Calls an operation of the Sales Invoicing API for the configured organization.
  * @param method - The HTTP method.
@@ -105,10 +116,32 @@ export function salesGet<T>(path: string, query: Query = {}): Promise<T> {
  * @returns The parsed JSON response, or undefined when the response has no body.
  */
 export async function salesRequest<T>(
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  method: Method,
   path: string,
   options: { query?: Query; body?: unknown } = {},
 ): Promise<T> {
+  const response = await salesFetch(method, path, { ...options, accept: "application/json" });
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/**
+ * Downloads a file from a GET operation of the Sales Invoicing API, such as an invoice PDF.
+ * @param path - The path after `/{organizationNumber}`.
+ * @param accept - The file's media type, such as `application/pdf`.
+ * @param query - Query parameters; undefined values are left out.
+ * @returns The successful response, with the file as its body.
+ */
+export function salesDownload(path: string, accept: string, query: Query = {}): Promise<Response> {
+  return salesFetch("GET", path, { query, accept });
+}
+
+/** Calls the API and returns the successful response; throws with the API's reason otherwise. */
+async function salesFetch(
+  method: Method,
+  path: string,
+  options: { query?: Query; body?: unknown; accept: string },
+): Promise<Response> {
   const cfg = config();
   const url = new URL(`${SALES_API_URL}/${encodeURIComponent(cfg.organizationNumber)}${path}`);
   for (const [key, value] of Object.entries(options.query ?? {})) {
@@ -118,7 +151,7 @@ export async function salesRequest<T>(
     Authorization: `Bearer ${await accessToken(cfg)}`,
     "Ocp-Apim-Subscription-Key": cfg.subscriptionKey,
     "User-Agent": USER_AGENT,
-    Accept: "application/json",
+    Accept: options.accept,
   };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   const response = await fetch(url, {
@@ -142,6 +175,5 @@ export async function salesRequest<T>(
     }
     throw new Error(`Easor API request failed with HTTP ${response.status}${reason ? `: ${reason}` : "."}`);
   }
-  const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  return response;
 }
