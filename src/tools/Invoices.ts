@@ -213,6 +213,9 @@ export class Invoices {
 
   /**
    * Get a sales invoice with its lines.
+   *
+   * The invoice is shown to the user as a document in a widget. Don't repeat its contents: reply with
+   * at most a sentence, or answer just what the user asked.
    * @param input - The invoice id.
    * @returns The invoice.
    * @readOnly
