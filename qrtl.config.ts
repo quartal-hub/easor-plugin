@@ -9,7 +9,8 @@ export default defineQrtlConfig({
   description: "A Quartal Plugin.",
   // Auth mode: "anon" (no authentication), "quartal-hub" (OAuth2 via Quartal Hub), or
   // "custom" (your own OAuth2 / OIDC server).
-  auth: "anon",
+  // Quartal test Keycloak (issuer, scope quartal-hub-test, audience https://hub.test.qrtl.com).
+  auth: "quartal-hub",
   // The skin of the docs site and the widgets. Logo and icons shown by MCP clients and the docs site:
   // logo: "https://example.com/logo.png",
   // icons: [{ src: "https://example.com/icon.png", mimeType: "image/png", sizes: ["128x128"] }],
