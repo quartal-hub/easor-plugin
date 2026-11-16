@@ -157,7 +157,7 @@ export interface NewInvoiceLine {
 /** A new sales invoice. */
 export interface CreateInvoiceInput {
   /**
-   * The customer: the id of an existing contact (see `findContacts`).
+   * The customer: the id of a contact (see `findContacts`, or `createContact` for a new customer).
    * @format uuid
    */
   contactId: string;

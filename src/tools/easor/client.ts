@@ -49,6 +49,11 @@ function config(): Config {
   };
 }
 
+/** The configured organization's number (Talenom customer number). */
+export function organizationNumber(): number {
+  return Number(config().organizationNumber);
+}
+
 let cachedToken: { value: string; expiresAt: number } | undefined;
 
 async function accessToken(cfg: Config): Promise<string> {
