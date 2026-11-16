@@ -1,5 +1,5 @@
 {
-  "name": "easor-plugin",
+  "name": "@quartal/easor",
   "type": "module",
   "packageManager": "pnpm@11.28.11",
   "version": "0.1.0",
