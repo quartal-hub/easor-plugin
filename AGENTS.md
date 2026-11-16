@@ -33,7 +33,10 @@ Agent Plugins manifest at `/plugin.json`.
   `@format`, `@example` and `@visibility`. Never hand-write JSON Schema and never add a schema
   library (zod etc.); improve the types and JSDoc instead.
 - **Widgets** are Astro pages in `src/pages/widgets/`; a page's file name must be the id of
-  the tool it visualizes (`listInvoices.astro` is the UI for a `listInvoices` tool).
+  the tool it visualizes (`listInvoices.astro` is the UI for a `listInvoices` tool). The model
+  gets the tool's whole result as JSON beside the widget and would otherwise write it out again,
+  so the JSDoc of a tool with a widget tells it not to repeat what the widget shows (see
+  `Invoices.get`).
 - **Skills**: to ship know-how alongside the tools, add folders with a `SKILL.md` under
   `skills/`.
 - **Plugin options** (title, description, auth, deploy) live in `qrtl.config.ts`.
